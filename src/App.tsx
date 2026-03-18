@@ -1,15 +1,23 @@
 import { useState, useRef, useEffect } from 'react'
 import { flushSync } from 'react-dom'
 import { onCardPointerDown, applyStoredOrder, type DragCallbacks } from './kanbanDrag'
+import { supabase, type DbColumn, type DbCard } from './supabase'
 import './App.css'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface Card {
   id: string
-  col: string
+  col_id: string
   title: string
   description: string
+  position: number
+}
+
+interface Column {
+  id: string
+  title: string
+  position: number
 }
 
 // ── EditableField ──────────────────────────────────────────────────────────
@@ -66,8 +74,8 @@ function EditableField({
   return (
     <span
       className={`editable-display ${className ?? ''} ${!value ? 'editable-placeholder' : ''}`}
-      onClick={startEdit}
-      title="Click to edit"
+      onDoubleClick={startEdit}
+      title="Double-click to edit"
     >
       {value || placeholder}
     </span>
@@ -81,11 +89,13 @@ function KanbanCard({
   activeId,
   dragCbs,
   onUpdate,
+  onDelete,
 }: {
   card: Card
   activeId: string | null
   dragCbs: DragCallbacks
   onUpdate: (id: string, field: 'title' | 'description', value: string) => void
+  onDelete: (id: string) => void
 }) {
   const isDragging = activeId === card.id
   return (
@@ -93,12 +103,20 @@ function KanbanCard({
       className={`kbn-card${isDragging ? ' kbn-card--dragging' : ''}`}
       onPointerDown={e => onCardPointerDown(e, card.id, dragCbs)}
     >
-      <EditableField
-        value={card.title}
-        placeholder="Title…"
-        onSave={v => onUpdate(card.id, 'title', v)}
-        className="card-title"
-      />
+      <div className="card-header">
+        <EditableField
+          value={card.title}
+          placeholder="Title…"
+          onSave={v => onUpdate(card.id, 'title', v)}
+          className="card-title"
+        />
+        <button
+          className="btn-delete-card"
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onDelete(card.id) }}
+          title="Delete card"
+        >✕</button>
+      </div>
       <EditableField
         value={card.description}
         placeholder="Description…"
@@ -111,12 +129,6 @@ function KanbanCard({
 
 // ── KanbanColumn ───────────────────────────────────────────────────────────
 
-const COL_LABELS: Record<string, string> = {
-  todo: 'To Do',
-  'in-progress': 'In Progress',
-  done: 'Done',
-}
-
 function KanbanColumn({
   col,
   cards,
@@ -124,90 +136,142 @@ function KanbanColumn({
   overCol,
   dragCbs,
   onUpdate,
+  onDelete,
+  onAddCard,
 }: {
-  col: string
+  col: Column
   cards: Card[]
   activeId: string | null
   overCol: string | null
   dragCbs: DragCallbacks
   onUpdate: (id: string, field: 'title' | 'description', value: string) => void
+  onDelete: (id: string) => void
+  onAddCard: (colId: string) => void
 }) {
   return (
-    <div className={`kbn-col${overCol === col ? ' kbn-col--over' : ''}`} data-colonne={col}>
-      <div className="kbn-col-header">{COL_LABELS[col] ?? col}</div>
+    <div className={`kbn-col${overCol === col.id ? ' kbn-col--over' : ''}`} data-colonne={col.id}>
+      <div className="kbn-col-header">{col.title}</div>
       <div className="kbn-col-body">
         {cards.map(card => (
-          <KanbanCard key={card.id} card={card} activeId={activeId} dragCbs={dragCbs} onUpdate={onUpdate} />
+          <KanbanCard key={card.id} card={card} activeId={activeId} dragCbs={dragCbs} onUpdate={onUpdate} onDelete={onDelete} />
         ))}
       </div>
+      <button className="btn-add-card" onClick={() => onAddCard(col.id)}>+ Add card</button>
     </div>
   )
 }
 
 // ── App ────────────────────────────────────────────────────────────────────
 
-const COLS = ['todo', 'in-progress', 'done'] as const
-
-const INITIAL_CARDS: Card[] = [
-  { id: '1', col: 'todo', title: 'Design mockup', description: 'Wireframes for landing page' },
-  { id: '2', col: 'todo', title: 'Write tests', description: 'Unit tests for auth module' },
-  { id: '3', col: 'in-progress', title: 'API integration', description: 'Connect frontend to REST API' },
-  { id: '4', col: 'in-progress', title: 'Fix login bug', description: 'Session token not refreshing' },
-  { id: '5', col: 'done', title: 'Setup repo', description: 'Init project and CI pipeline' },
-]
-
 export default function App() {
-  const [cards, setCards] = useState<Card[]>(INITIAL_CARDS)
+  const [columns, setColumns] = useState<Column[]>([])
+  const [cards, setCards] = useState<Card[]>([])
   const [orders, setOrders] = useState<Record<string, string[]>>({})
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [newColTitle, setNewColTitle] = useState('')
+  const [addingCol, setAddingCol] = useState(false)
+
+  // ── Load from Supabase ───────────────────────────────────────────────────
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: cols }, { data: cds }] = await Promise.all([
+        supabase.from('kanban_columns').select('*').order('position'),
+        supabase.from('kanban_cards').select('*').order('position'),
+      ])
+      setColumns((cols as DbColumn[]) || [])
+      setCards((cds as DbCard[]) || [])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  // ── Computed ─────────────────────────────────────────────────────────────
+
+  const sortedCols = [...columns].sort((a, b) => a.position - b.position)
 
   const parCol = Object.fromEntries(
-    COLS.map(col => {
-      const colCards = cards.filter(c => c.col === col)
-      return [col, applyStoredOrder(colCards, c => c.id, orders[col] || [])]
+    sortedCols.map(col => {
+      const colCards = cards.filter(c => c.col_id === col.id)
+      return [col.id, applyStoredOrder(colCards, c => c.id, orders[col.id] || [])]
     })
   )
 
-  function handleDrop(targetCol: string, dropIndex: number) {
+  // ── Card actions ─────────────────────────────────────────────────────────
+
+  async function addCard(colId: string) {
+    const id = String(Date.now())
+    const position = (parCol[colId] || []).length
+    const card: Card = { id, col_id: colId, title: '', description: '', position }
+    setCards(prev => [...prev, card])
+    await supabase.from('kanban_cards').insert({ id, col_id: colId, title: '', description: '', position })
+  }
+
+  async function deleteCard(id: string) {
+    setCards(prev => prev.filter(c => c.id !== id))
+    await supabase.from('kanban_cards').delete().eq('id', id)
+  }
+
+  async function updateCard(id: string, field: 'title' | 'description', value: string) {
+    setCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
+    await supabase.from('kanban_cards').update({ [field]: value }).eq('id', id)
+  }
+
+  // ── Column actions ───────────────────────────────────────────────────────
+
+  async function addColumn() {
+    const title = newColTitle.trim()
+    if (!title) return
+    const id = title.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
+    const position = columns.length
+    const col: Column = { id, title, position }
+    setColumns(prev => [...prev, col])
+    setNewColTitle('')
+    setAddingCol(false)
+    await supabase.from('kanban_columns').insert({ id, title, position })
+  }
+
+  // ── Drag & drop ──────────────────────────────────────────────────────────
+
+  function handleDrop(targetColId: string, dropIndex: number) {
     setOverCol(null)
     if (!activeId) return
     const card = cards.find(c => c.id === activeId)
     if (!card) return
 
-    const sourceCol = card.col
+    const sourceColId = card.col_id
 
-    if (sourceCol === targetCol) {
-      const colCards = parCol[targetCol] || []
+    if (sourceColId === targetColId) {
+      const colCards = parCol[targetColId] || []
       const sourceIndex = colCards.findIndex(c => c.id === activeId)
       const ids = colCards.map(c => c.id).filter(id => id !== activeId)
       const adjusted = sourceIndex !== -1 && sourceIndex < dropIndex ? dropIndex - 1 : dropIndex
       ids.splice(adjusted, 0, activeId)
       flushSync(() => {
-        setOrders(prev => ({ ...prev, [targetCol]: ids }))
+        setOrders(prev => ({ ...prev, [targetColId]: ids }))
         setTick(t => t + 1)
       })
+      // Persist positions
+      ids.forEach((cid, i) => supabase.from('kanban_cards').update({ position: i }).eq('id', cid))
     } else {
-      setCards(prev => prev.map(c => c.id === activeId ? { ...c, col: targetCol } : c))
+      setCards(prev => prev.map(c => c.id === activeId ? { ...c, col_id: targetColId } : c))
 
-      const targetIds = (parCol[targetCol] || []).map(c => c.id)
+      const targetIds = (parCol[targetColId] || []).map(c => c.id)
       targetIds.splice(dropIndex, 0, activeId)
-      setOrders(prev => ({ ...prev, [targetCol]: targetIds }))
+      setOrders(prev => ({ ...prev, [targetColId]: targetIds }))
 
-      const sourceIds = (parCol[sourceCol] || []).map(c => c.id).filter(id => id !== activeId)
-      setOrders(prev => ({ ...prev, [sourceCol]: sourceIds }))
+      const sourceIds = (parCol[sourceColId] || []).map(c => c.id).filter(id => id !== activeId)
+      setOrders(prev => ({ ...prev, [sourceColId]: sourceIds }))
+
+      // Persist move + positions
+      supabase.from('kanban_cards').update({ col_id: targetColId, position: dropIndex }).eq('id', activeId)
+      targetIds.forEach((cid, i) => supabase.from('kanban_cards').update({ position: i }).eq('id', cid))
+      sourceIds.forEach((cid, i) => supabase.from('kanban_cards').update({ position: i }).eq('id', cid))
     }
     setActiveId(null)
-  }
-
-  function updateCard(id: string, field: 'title' | 'description', value: string) {
-    setCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
-  }
-
-  function addCard() {
-    const id = String(Date.now())
-    setCards(prev => [...prev, { id, col: 'todo', title: '', description: '' }])
   }
 
   const dragRef = useRef({ setActiveId, setOverCol, handleDrop })
@@ -220,24 +284,46 @@ export default function App() {
 
   void tick
 
+  if (loading) return <div className="loading">Loading…</div>
+
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Kanban Demo</h1>
-        <button className="btn-add" onClick={addCard}>+ Add card</button>
+        <h1>Simple Kanban</h1>
+        <button className="btn-add-col" onClick={() => setAddingCol(true)}>+ Add column</button>
       </header>
+
       <div className="kbn-board">
-        {COLS.map(col => (
+        {sortedCols.map(col => (
           <KanbanColumn
-            key={col}
+            key={col.id}
             col={col}
-            cards={parCol[col] || []}
+            cards={parCol[col.id] || []}
             activeId={activeId}
             overCol={overCol}
             dragCbs={dragCbs}
             onUpdate={updateCard}
+            onDelete={deleteCard}
+            onAddCard={addCard}
           />
         ))}
+
+        {addingCol && (
+          <div className="kbn-col kbn-col--new">
+            <input
+              className="new-col-input"
+              autoFocus
+              placeholder="Column name…"
+              value={newColTitle}
+              onChange={e => setNewColTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addColumn(); if (e.key === 'Escape') setAddingCol(false) }}
+            />
+            <div className="new-col-btns">
+              <button className="btn-confirm" onClick={addColumn}>Add</button>
+              <button className="btn-cancel" onClick={() => { setAddingCol(false); setNewColTitle('') }}>✕</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
