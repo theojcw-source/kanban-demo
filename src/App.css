@@ -1,18 +1,36 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700&display=swap');
+
+/* ── Content Factory light theme variables ─────────────── */
+:root {
+  --bg:     #ECEEE8;
+  --s1:     #F6F6F2;
+  --s2:     #E2E3DC;
+  --s3:     #D6D8D0;
+  --border: rgba(0,0,0,0.09);
+  --text:   #1A1C22;
+  --muted:  #4B5563;
+  --accent: #1B3A6B;
+  --radius: 10px;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #f4f5f7;
-  color: #172b4d;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
   min-height: 100vh;
+  font-size: 13px;
 }
 
 /* ── App shell ─────────────────────────────────────────── */
 
 .app {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 32px 28px;
 }
 
 .app-header {
@@ -23,151 +41,259 @@ body {
 }
 
 .app-header h1 {
-  font-size: 1.5rem;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
   font-weight: 700;
-  color: #172b4d;
+  color: var(--text);
+  letter-spacing: -.01em;
 }
 
-.btn-add-col {
-  background: #0052cc;
+/* ── Add menu ──────────────────────────────────────────── */
+
+.add-menu { position: relative; }
+
+.btn-add-main {
+  background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-family: var(--font-body);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 }
-.btn-add-col:hover { background: #0065ff; }
+.btn-add-main:hover { background: #152E56; }
+
+.add-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+  min-width: 200px;
+  padding: 6px;
+  z-index: 100;
+}
+
+.add-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.add-dropdown-item:hover { background: var(--s2); }
+
+.add-dropdown-col {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.add-dropdown-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* ── Loading ───────────────────────────────────────────── */
 
 .loading {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   height: 100vh;
-  font-size: 1rem;
-  color: #5e6c84;
+  color: var(--muted);
+  font-size: 13px;
 }
+.spinner {
+  width: 22px; height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Board & columns ───────────────────────────────────── */
 
 .kbn-board {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-start;
   overflow-x: auto;
-  padding-bottom: 16px;
+  padding-bottom: 8px;
+  /* hide scrollbar */
+  scrollbar-width: none;
 }
+.kbn-board::-webkit-scrollbar { display: none; }
 
 .kbn-col {
-  flex: 0 0 280px;
-  background: #ebecf0;
-  border-radius: 10px;
+  flex: 0 0 270px;
+  background: var(--s2);
+  border-radius: var(--radius);
   padding: 12px 10px;
-  transition: background 0.15s;
+  border: 1px solid var(--border);
 }
-.kbn-col--over { background: #dde0e8; }
+.kbn-col--over { background: var(--s3); }
+
 .kbn-col--new {
-  flex: 0 0 280px;
-  background: #ebecf0;
-  border-radius: 10px;
+  flex: 0 0 270px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+/* ── Column header ─────────────────────────────────────── */
+
 .kbn-col-header {
-  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 2px;
+  min-height: 24px;
+}
+
+.col-title {
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .05em;
-  color: #5e6c84;
-  margin-bottom: 10px;
-  padding: 0 4px;
+  letter-spacing: .08em;
+  color: var(--muted);
+  cursor: default;
+  flex: 1;
 }
+.col-title:hover { cursor: text; }
+
+.col-title-input {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  background: var(--s1);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  outline: none;
+  width: 100%;
+}
+
+.btn-delete-col {
+  opacity: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+  flex-shrink: 0;
+}
+.kbn-col:hover .btn-delete-col { opacity: 1; }
+.btn-delete-col:hover { background: rgba(185,28,28,.1); color: #B91C1C; }
+
+/* ── Column body ───────────────────────────────────────── */
 
 .kbn-col-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 40px;
+  min-height: 32px;
 }
-
-.btn-add-card {
-  margin-top: 8px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 0.8rem;
-  color: #5e6c84;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.12s, color 0.12s;
-}
-.btn-add-card:hover { background: rgba(0,0,0,.06); color: #172b4d; }
 
 /* ── New column form ───────────────────────────────────── */
 
 .new-col-input {
   width: 100%;
-  border: 1.5px solid #0052cc;
+  background: var(--s1);
+  border: 1px solid var(--accent);
   border-radius: 6px;
   padding: 8px 10px;
-  font-family: inherit;
-  font-size: 0.875rem;
+  font-family: var(--font-body);
+  font-size: 12px;
   font-weight: 600;
+  color: var(--text);
   outline: none;
-  background: #fff;
 }
-
-.new-col-btns {
-  display: flex;
-  gap: 6px;
-}
-
+.new-col-btns { display: flex; gap: 6px; }
 .btn-confirm {
-  background: #0052cc;
+  background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   padding: 6px 14px;
-  font-size: 0.8rem;
+  font-family: var(--font-body);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
-.btn-confirm:hover { background: #0065ff; }
-
+.btn-confirm:hover { background: #152E56; }
 .btn-cancel {
   background: transparent;
-  border: none;
-  border-radius: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   padding: 6px 10px;
-  font-size: 0.9rem;
-  color: #5e6c84;
+  font-size: 12px;
+  color: var(--muted);
   cursor: pointer;
 }
-.btn-cancel:hover { background: rgba(0,0,0,.06); }
+.btn-cancel:hover { background: var(--s3); }
 
 /* ── Cards ─────────────────────────────────────────────── */
 
 .kbn-card {
-  background: #fff;
+  background: var(--s1);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  padding: 11px 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
   cursor: grab;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   user-select: none;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
-.kbn-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.14); }
+.kbn-card:hover {
+  box-shadow: 0 3px 10px rgba(0,0,0,.08);
+  border-color: rgba(0,0,0,.15);
+}
 .kbn-card:hover .btn-delete-card { opacity: 1; }
+.kbn-card--dragging { pointer-events: none; opacity: 0; }
+.kbn-card--floating {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+  background: var(--s1);
+  border: 1px solid var(--border);
+  cursor: grabbing;
+}
+
+/* ── Card header & delete ──────────────────────────────── */
 
 .card-header {
   display: flex;
@@ -177,66 +303,52 @@ body {
 .card-header .card-title { flex: 1; }
 
 .btn-delete-card {
-  flex-shrink: 0;
   opacity: 0;
   background: transparent;
   border: none;
   border-radius: 4px;
-  padding: 2px 5px;
-  font-size: 0.7rem;
-  color: #97a0af;
+  padding: 1px 5px;
+  font-size: 10px;
+  color: var(--muted);
   cursor: pointer;
+  flex-shrink: 0;
   transition: background 0.12s, color 0.12s, opacity 0.12s;
-  line-height: 1;
+  line-height: 1.6;
 }
-.btn-delete-card:hover { background: #ffebe6; color: #de350b; }
-.kbn-card--dragging { pointer-events: none; opacity: 0; }
-.kbn-card--floating {
-  position: fixed;
-  pointer-events: none;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.2);
-  background: #fff;
-  cursor: grabbing;
-}
+.btn-delete-card:hover { background: rgba(185,28,28,.1); color: #B91C1C; }
 
 /* ── Editable fields ───────────────────────────────────── */
 
 .editable-display {
   display: block;
-  border-radius: 4px;
-  padding: 2px 4px;
-  cursor: text;
-  line-height: 1.4;
+  line-height: 1.45;
   word-break: break-word;
-  transition: background 0.12s;
+  cursor: text;
 }
-.editable-display:hover { background: #f4f5f7; }
 
 .card-title.editable-display {
-  font-size: 0.9rem;
+  font-size: 13px;
   font-weight: 600;
-  color: #172b4d;
+  color: var(--text);
 }
-
 .card-desc.editable-display {
-  font-size: 0.78rem;
-  color: #5e6c84;
+  font-size: 12px;
+  color: var(--muted);
 }
-
-.editable-placeholder { color: #aaa; font-style: italic; }
+.editable-placeholder { color: rgba(0,0,0,.25); font-style: italic; }
 
 .editable-input {
   width: 100%;
-  border: 1.5px solid #0052cc;
+  border: 1px solid var(--accent);
   border-radius: 4px;
-  padding: 4px 6px;
-  font-family: inherit;
-  font-size: 0.875rem;
-  line-height: 1.4;
+  padding: 3px 6px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
   resize: none;
   outline: none;
-  background: #fff;
+  background: var(--s1);
+  color: var(--text);
 }
-.card-title.editable-input { font-weight: 600; font-size: 0.9rem; }
-.card-desc.editable-input  { font-size: 0.78rem; color: #5e6c84; }
+.card-title.editable-input { font-weight: 600; }
+.card-desc.editable-input  { font-size: 12px; color: var(--muted); }
